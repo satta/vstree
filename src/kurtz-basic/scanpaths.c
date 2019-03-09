@@ -77,6 +77,10 @@ static Sint evalpathlist(const char *envarname,void *info,
     }
     FREESPACE(envstring);
   }
+  if(applypath(info,"/usr/share/vmatch/TRANS") < 0)
+  {
+    return (Sint) -2;
+  }
   return 0;
 }
 
