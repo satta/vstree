@@ -55,5 +55,5 @@ void findmaxprefixlenstack(Virtualtree *virtualtree,
                                    PairUint *maxwit,
                                    ArrayVnode *stack);
 ENDOFINCLUDE
-skproto $*
+gt dev skproto $*
 echo "#endif"
