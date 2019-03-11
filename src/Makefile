@@ -187,9 +187,9 @@ endif
 	@cp Mkvtree/TRANS/Trans* $(VMATCHDISTDIR)/${SMAPDIR}
 	@cp bin/cleanpp.sh $(VMATCHDISTDIR)
 	@cp bin/Vmatchtrans.pl $(VMATCHDISTDIR)
-	@cp doc/virtman.pdf $(VMATCHDISTDIR)
-	@cp doc/chain2dim.pdf $(VMATCHDISTDIR)
-	@cp doc/matchcluster.pdf $(VMATCHDISTDIR)
+	#@cp doc/virtman.pdf $(VMATCHDISTDIR)
+	#@cp doc/chain2dim.pdf $(VMATCHDISTDIR)
+	#@cp doc/matchcluster.pdf $(VMATCHDISTDIR)
 	@cp ../LICENSE $(VMATCHDISTDIR)
 	@cp README.distrib $(VMATCHDISTDIR)
 	@cp CHANGELOG $(VMATCHDISTDIR)

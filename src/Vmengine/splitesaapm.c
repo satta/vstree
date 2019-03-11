@@ -12,8 +12,8 @@
 #include "arraydef.h"
 #include "chardef.h"
 
+#include "rbtree.h"
 #include "regionsmerger.pr"
-#include "redblack.pr"
 
 #include "pminfo.h"
 
@@ -34,7 +34,8 @@ typedef struct
     maxwidthofregiontoverify,
     *dcol;
   BOOL doedist;
-  void *apmoutinfo, *regiontreeroot;
+  void *apmoutinfo;
+  RBTree *regiontreeroot;
   Sint (*processapmstartpos)(Uint,Uint,void *);
 #ifdef DEBUG
   ArrayPairUint originalregions;
@@ -272,7 +273,7 @@ static Sint storeapmposition(Uint startpos,
                              void *info)
 {
   Verifyinfo *verifyinfo = (Verifyinfo *) info;
-  BOOL nodecreated;
+  bool nodecreated;
   PairUint region;
 
   if(verifyinfo->regionoffsetstart > startpos)
@@ -301,11 +302,11 @@ static Sint storeapmposition(Uint startpos,
   return 0;
 }
 
-static Sint verifyapmpositions(const Keytype key, VISIT which,
+static int verifyapmpositions(const Keytype key, RBTreeContext which,
                                /*@unused@ */ Uint depth,
                                void *info)
 {
-  if(which == postorder || which == leaf)
+  if(which == RBTREE_POSTORDER || which == RBTREE_LEAF)
   {
     return verifytheapproximatematch((Verifyinfo *) info,(PairUint *) key);
   } else
@@ -445,8 +446,8 @@ static Sint realsplitesaapm(Verifyinfo *verifyinfo,
                verifyinfo->pattern,
                verifyinfo->patternlength);
   }
-  retcode = redblacktreewalkwithstop(verifyinfo->regiontreeroot,
-                                     verifyapmpositions, verifyinfo);
+  retcode = rbtree_walk_stop(verifyinfo->regiontreeroot,
+                             verifyapmpositions, verifyinfo);
   if(verifyinfo->doedist)
   {
     FREESPACE(verifyinfo->dcol);
@@ -454,7 +455,7 @@ static Sint realsplitesaapm(Verifyinfo *verifyinfo,
 #ifdef DEBUG
   FREEARRAY(&verifyinfo->originalregions, PairUint);
 #endif
-  redblacktreedestroy(True, NULL, NULL, verifyinfo->regiontreeroot);
+  rbtree_delete(verifyinfo->regiontreeroot);
   DEBUG2(2,"# dpwork = %lu(%.2f)\n",
           (Showuint) verifyinfo->dpwork,
           (double) verifyinfo->dpwork /

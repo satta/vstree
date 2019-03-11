@@ -11,30 +11,28 @@
 
 #include "rbtree.h"
 
-static Sint compareregions(const Keytype key,
-                           const Keytype treeelem, /*@unused@*/ void *info)
+static int compareregions(const void* key,
+                           const void* treeelem, /*@unused@*/ void *info)
 {
-  if(((PairUint *) key)->uint0 < ((PairUint *) treeelem)->uint0)
+  if(((const PairUint *) key)->uint0 < ((const PairUint *) treeelem)->uint0)
   {
     return (Sint) -1;
   }
-  if(((PairUint *) key)->uint0 > ((PairUint *) treeelem)->uint0)
+  if(((const PairUint *) key)->uint0 > ((const PairUint *) treeelem)->uint0)
   {
     return (Sint) 1;
   }
   return 0;
 }
 
-static Sint checkregioncontainment(void *regiontreeroot,PairUint *region)
+static Sint checkregioncontainment(RBTree *regiontree,PairUint *region)
 {
   PairUint *previouselement;
 
-  NOTSUPPOSEDTOBENULL(regiontreeroot);
+  NOTSUPPOSEDTOBENULL(regiontree);
   previouselement
-    = (PairUint *) redblacktreepreviousequalkey((const Keytype) region,
-                                                regiontreeroot,
-                                                compareregions,
-                                                NULL);
+    = (PairUint *) rbtree_previous_equal_key(regiontree, (const Keytype) region,
+                                             compareregions, NULL);
   NOTSUPPOSEDTOBENULL(previouselement);
   if(region->uint0 < previouselement->uint0 ||
      region->uint1 > previouselement->uint1)
@@ -46,12 +44,12 @@ static Sint checkregioncontainment(void *regiontreeroot,PairUint *region)
   return 0;
 }
 
-static Sint collectregions (const Keytype key,
-                            VISIT which,
+static int collectregions (const Keytype key,
+                            RBTreeContext which,
                             /*@unused@ */ Uint depth,
                             void *info)
 {
-  if (which == postorder || which == leaf)
+  if (which == RBTREE_POSTORDER || which == RBTREE_LEAF)
   {
     ArrayPairUint *mergedregions = (ArrayPairUint *) info;
     PairUint *region = (PairUint *) key;
@@ -92,7 +90,7 @@ static Sint checkforoverlappingregions (ArrayPairUint *regions)
   return 0;
 }
 
-static Sint checkallregionsforcontainment(void *regiontreeroot,
+static Sint checkallregionsforcontainment(RBTree *regiontree,
                                           ArrayPairUint *regions)
 {
   Uint i;
@@ -103,7 +101,7 @@ static Sint checkallregionsforcontainment(void *regiontreeroot,
             (Showuint) i,
             (Showuint) regions->spacePairUint[i].uint0,
             (Showuint) regions->spacePairUint[i].uint1);
-    if (checkregioncontainment (regiontreeroot, 
+    if (checkregioncontainment (regiontree, 
                                 &regions->spacePairUint[i]) != 0)
     {
       return (Sint) -1;
@@ -152,15 +150,15 @@ static void comparemarkedbits(Uint *marktable1,Uint *marktable2,Uint width)
   printf("tables of width %lu are identical\n",(Showuint) width);
 }
 
-Sint verifyregiontree(void *regiontreeroot,Uint width,
+Sint verifyregiontree(RBTree *regiontree,Uint width,
                       ArrayPairUint *originalregions)
 {
   ArrayPairUint mergedregions;
   Uint *markmerged, *markorig;
 
   INITARRAY (&mergedregions, PairUint);
-  if (redblacktreewalk (regiontreeroot,
-                        collectregions, &mergedregions) != 0)
+  if (rbtree_walk (regiontree,
+                   collectregions, &mergedregions) != 0)
   {
     return (Sint) -1;
   }
@@ -168,7 +166,7 @@ Sint verifyregiontree(void *regiontreeroot,Uint width,
   {
     return (Sint) -2;
   }
-  if(checkallregionsforcontainment(regiontreeroot,originalregions) != 0)
+  if(checkallregionsforcontainment(regiontree,originalregions) != 0)
   {
     return (Sint) -3;
   }
@@ -183,21 +181,20 @@ Sint verifyregiontree(void *regiontreeroot,Uint width,
   return 0;
 }
 
-static Sint mergewithonepreviouselement(void **regiontreeroot, 
+static int mergewithonepreviouselement(RBTree *regiontree, 
                                         PairUint **node2storeregion,
                                         PairUint *region)
 {
   PairUint *previouselement;
 
-  if(*regiontreeroot == NULL)
+  if(regiontree == NULL)
   {
     return 0;
   }
   previouselement
-    = (PairUint *) redblacktreepreviousequalkey((const Keytype) region,
-                                                *regiontreeroot,
-                                                compareregions,
-                                                NULL);
+    = (PairUint *) rbtree_previous_equal_key(regiontree, (const Keytype) region,
+                                             compareregions,
+                                             NULL);
   if(previouselement != NULL && previouselement->uint1 + 1 >= region->uint0)
   {
     DEBUG4(2,"left merge of previous (%lu,%lu) with (%lu,%lu)\n",
@@ -215,7 +212,7 @@ static Sint mergewithonepreviouselement(void **regiontreeroot,
   return 0;
 }
 
-static Sint mergewithallrightelements(void **regiontreeroot, 
+static int mergewithallrightelements(RBTree *regiontree, 
                                       PairUint **node2storeregion,
                                       PairUint *region)
 {
@@ -223,10 +220,8 @@ static Sint mergewithallrightelements(void **regiontreeroot,
 
   while(True)
   {
-    nextelement = (PairUint *) redblacktreenextkey((const Keytype) region,
-                                                   *regiontreeroot,
-                                                   compareregions,
-                                                   NULL);
+    nextelement = (PairUint *) rbtree_next_key(regiontree, (const Keytype) region,
+                                               compareregions, NULL);
    
     if(nextelement != NULL && region->uint1 + 1 >= nextelement->uint0)
     {
@@ -240,9 +235,7 @@ static Sint mergewithallrightelements(void **regiontreeroot,
           *node2storeregion = nextelement;
         } else
         {
-          if(redblacktreedelete((const Keytype) nextelement,
-                                regiontreeroot,
-                                compareregions, NULL) != 0)
+          if(rbtree_erase(regiontree, (const Keytype) nextelement) != 0)
           {
             ERROR2("cannot delete (%lu,%lu)",
                    (Showuint) nextelement->uint0,
@@ -254,9 +247,7 @@ static Sint mergewithallrightelements(void **regiontreeroot,
         break;
       }
       
-      if(redblacktreedelete((const Keytype) nextelement,
-                            regiontreeroot,
-                            compareregions, NULL) != 0)
+      if(rbtree_erase(regiontree, (const Keytype) nextelement) != 0)
       {
         ERROR2("cannot delete (%lu,%lu)",
                (Showuint) nextelement->uint0,
@@ -272,9 +263,9 @@ static Sint mergewithallrightelements(void **regiontreeroot,
   return 0;
 }
 
-static Sint dotheregioninsertion(void **regiontreeroot, 
+static int dotheregioninsertion(RBTree *regiontree, 
                                  BOOL makedatacopy,
-                                 BOOL *nodecreated, 
+                                 bool *nodecreated, 
                                  PairUint *region)
 {
   if(makedatacopy)
@@ -287,29 +278,26 @@ static Sint dotheregioninsertion(void **regiontreeroot,
       return (Sint) -1;
     }
     *copyofregion = *region;
-    (void) redblacktreesearch((const Keytype) copyofregion,
-                              nodecreated,
-                              regiontreeroot, compareregions,
-                              NULL);
+    (void) rbtree_search(regiontree, (const Keytype) copyofregion,
+                              nodecreated);
   } else
   {
-    (void) redblacktreesearch((const Keytype) region,
-                              nodecreated,
-                              regiontreeroot, compareregions,
-                              NULL);
+    (void) rbtree_search(regiontree, (const Keytype) region,
+                              nodecreated);
   }
   return 0;
 }
 
 
-Sint insertnewregion(void **regiontreeroot, 
+Sint insertnewregion(RBTree **regiontree, 
                      BOOL makedatacopy,
-                     BOOL *nodecreated, 
+                     bool *nodecreated, 
                      PairUint *region)
 {
-  if(*regiontreeroot == NULL)
+  if(*regiontree == NULL)
   {
-    if(dotheregioninsertion(regiontreeroot, 
+    *regiontree = rbtree_new(compareregions, NULL, NULL);
+    if(dotheregioninsertion(*regiontree, 
                             makedatacopy,
                             nodecreated, 
                             region) != 0)
@@ -320,12 +308,12 @@ Sint insertnewregion(void **regiontreeroot,
   {
     PairUint *node2storeregion = NULL;
 
-    if(mergewithonepreviouselement(regiontreeroot, 
+    if(mergewithonepreviouselement(*regiontree, 
                                    &node2storeregion, region) != 0)
     {
       return (Sint) -2;
     }
-    if(mergewithallrightelements(regiontreeroot, 
+    if(mergewithallrightelements(*regiontree, 
                                  &node2storeregion, region) != 0)
     {
       return (Sint) -3;
@@ -334,7 +322,7 @@ Sint insertnewregion(void **regiontreeroot,
     {
       DEBUG2(2, "insert (%lu,%lu)\n",
                  (Showuint) region->uint0, (Showuint) region->uint1);
-      if(dotheregioninsertion(regiontreeroot, 
+      if(dotheregioninsertion(*regiontree, 
                               makedatacopy,
                               nodecreated, 
                               region) != 0)
