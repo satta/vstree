@@ -11,7 +11,7 @@
 #include "matsort.pr"
 #include "chain2dim.pr"
 #include "filehandle.pr"
-#include "redblack.pr"
+#include "rbtree.h"
 
 #include "echomatch.pr"
 #include "procargs.pr"

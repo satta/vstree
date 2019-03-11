@@ -84,6 +84,24 @@ struct RBTreeIter
 #define RBTREE_NODE_IS_RED(node)\
         (node != NULL && node->red == 1)
 
+static Uint redblacktreespace = 0,
+            redblacktreespacepeak = 0;
+
+#define ADDREDBLACKTREESPACE(TYPE)\
+        redblacktreespace += ((Uint) sizeof(TYPE));\
+        if(redblacktreespacepeak < redblacktreespace)\
+        {\
+          redblacktreespacepeak = redblacktreespace;\
+        }
+
+#define SUBTRACTREDBLACKTREESPACE(TYPE)\
+redblacktreespace -= ((Uint) sizeof(TYPE))
+
+Uint getredblacktreespacepeak(void)
+{
+  return redblacktreespacepeak;
+}
+
 static inline RBTreeNode *rbtree_single(RBTreeNode *root, int dir)
 {
   RBTreeNode *save;
@@ -106,6 +124,7 @@ static inline RBTreeNode *rbtree_double(RBTreeNode *root, int dir)
 static RBTreeNode *rbtree_new_node(void *key)
 {
   RBTreeNode *rn = (RBTreeNode *) malloc(sizeof *rn);
+  ADDREDBLACKTREESPACE(RBTreeNode);
 
   rn->red = 1;
   rn->key = key;
@@ -118,6 +137,7 @@ RBTree *rbtree_new(CompareWithData cmp, RBTreeFreeFunc free,
                         void *info)
 {
   RBTree *rt = (RBTree *) malloc(sizeof *rt);
+  ADDREDBLACKTREESPACE(RBTree);
   assert(cmp);
 
   rt->root = NULL;
@@ -133,6 +153,7 @@ void rbtree_delete(RBTree *tree)
 {
   rbtree_clear(tree);
   free(tree);
+  SUBTRACTREDBLACKTREESPACE(RBTree);
 }
 
 void rbtree_clear(RBTree *tree)
@@ -152,6 +173,7 @@ void rbtree_clear(RBTree *tree)
           if (tree->free != NULL)
             tree->free(it->key);
           free(it);
+	  SUBTRACTREDBLACKTREESPACE(RBTreeNode);
         } else {
           /* Rotate away the left link and check again */
           save = it->link[0];

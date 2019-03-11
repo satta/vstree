@@ -12,7 +12,7 @@
 #include "chaincall.h"
 
 #include "filehandle.pr"
-#include "redblack.pr"
+#include "rbtree.h"
 #include "chain2dim.pr"
 #include "readnextline.pr"
 

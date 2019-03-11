@@ -112,4 +112,6 @@ void*          rbtree_iter_data (RBTreeIter *trav);
 /* free all memory of <trav> */
 void           rbtree_iter_delete(RBTreeIter *trav);
 
+Uint           getredblacktreespacepeak(void);
+
 #endif
