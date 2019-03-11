@@ -9,10 +9,9 @@
 #include "spacedef.h"
 #include "debugdef.h"
 #include "match.h"
-#include "redblackdef.h"
+#include "rbtree.h"
 #include "failures.h"
 
-#include "redblack.pr"
 #include "dictmaxsize.pr"
 
 //}
@@ -191,7 +190,7 @@ Sint insertintobml(BestMatchlist *bml,StoreMatch *matchin)
 void freebestmatchlist(BestMatchlist *bml)
 {
   FREEARRAY(&bml->bmreservoir,StoreMatch);
-  redblacktreedestroy (False,NULL,NULL,bml->bmdict.root);
+  rbtree_delete(bml->bmdict.root);
 }
 
 //\Ignore{

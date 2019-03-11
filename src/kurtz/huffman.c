@@ -3,7 +3,7 @@
 #include "arraydef.h"
 #include "redblackdef.h"
 
-#include "redblack.pr"
+#include "rbtree.h"
 
 typedef struct hnode_t
 {
@@ -17,15 +17,15 @@ typedef struct
   Huffmannode *roothuffmantree;
   Uint insertednodes, largestsymbol,
        totalbits, totalnumofvalues;
-  void *rbhuffroot;
+  RBTree *rbhuffroot;
 } Huffmaninfo;
 
-static Sint cmpHuffmannode(const Keytype keya,
-                           const Keytype keyb,
+static int cmpHuffmannode(const void *keya,
+                          const void *keyb,
                            /*@unused@*/ void *info)
 {
-  Huffmannode *h1 = (Huffmannode *) keya,
-              *h2 = (Huffmannode *) keyb;
+  const Huffmannode *h1 = (const Huffmannode *) keya,
+                    *h2 = (const Huffmannode *) keyb;
   
   if(h1->count < h2->count)
   {
@@ -50,10 +50,10 @@ static void initialhuffmaninsert(Huffmaninfo *huffmaninfo,
                                  const ArrayUint *distribution)
 {
   Huffmannode *huffptr;
-  BOOL nodecreated;
+  bool nodecreated;
   Uint i; 
 
-  huffmaninfo->rbhuffroot = NULL;
+  huffmaninfo->rbhuffroot = rbtree_new(cmpHuffmannode, NULL, NULL);
   huffmaninfo->insertednodes = 0;
   for(i = 0; i < distribution->nextfreeUint; i++)
   {
@@ -69,11 +69,9 @@ static void initialhuffmaninsert(Huffmaninfo *huffmaninfo,
       huffptr->symbol = i;
       huffptr->leftchild = NULL;
       huffptr->rightchild = NULL;
-      (void) redblacktreesearch ((Keytype) huffptr,
-                                 &nodecreated,
-                                 &huffmaninfo->rbhuffroot,
-                                 cmpHuffmannode,
-                                 NULL);
+      (void) rbtree_search(huffmaninfo->rbhuffroot,
+		           huffptr,
+                           &nodecreated);
       huffmaninfo->insertednodes++;
       huffmaninfo->largestsymbol = i;
     }
@@ -84,7 +82,7 @@ static Sint makehuffmantree(Huffmaninfo *huffmaninfo)
 {
   Huffmannode *n1, *n2, *newnode = NULL;
   Uint i, currentsymbol = huffmaninfo->largestsymbol + 1;
-  BOOL nodecreated;
+  bool nodecreated;
 
   if(huffmaninfo->insertednodes == 0)
   {
@@ -94,22 +92,20 @@ static Sint makehuffmantree(Huffmaninfo *huffmaninfo)
   if(huffmaninfo->insertednodes == UintConst(1))
   {
     huffmaninfo->roothuffmantree
-      = (Huffmannode *) extractrootkey(huffmaninfo->rbhuffroot);
+      = (Huffmannode *) rbtree_root_key(huffmaninfo->rbhuffroot);
   } else
   {
     for(i=0; i<huffmaninfo->insertednodes-1; i++)
     {
-      n1 = redblacktreeminimumkey (huffmaninfo->rbhuffroot);
+      n1 = rbtree_minimum_key(huffmaninfo->rbhuffroot);
       NOTSUPPOSEDTOBENULL(n1);
-      if(redblacktreedelete (n1,&huffmaninfo->rbhuffroot,
-                             cmpHuffmannode,NULL) != 0)
+      if(rbtree_erase(huffmaninfo->rbhuffroot, n1) != 0)
       {
         return (Sint) -1;
       }
-      n2 = redblacktreeminimumkey (huffmaninfo->rbhuffroot);
+      n2 = rbtree_minimum_key(huffmaninfo->rbhuffroot);
       NOTSUPPOSEDTOBENULL(n2);
-      if(redblacktreedelete (n2,&huffmaninfo->rbhuffroot,
-                             cmpHuffmannode,NULL) != 0)
+      if(rbtree_erase(huffmaninfo->rbhuffroot, n2) != 0)
       {
         return (Sint) -1;
       }
@@ -130,10 +126,8 @@ static Sint makehuffmantree(Huffmaninfo *huffmaninfo)
         newnode->rightchild = n2;
       }
       newnode->symbol = currentsymbol++;
-      (void) redblacktreesearch (newnode,
-                                 &nodecreated,
-                                 &huffmaninfo->rbhuffroot,
-                                 cmpHuffmannode,NULL);
+      (void) rbtree_search(huffmaninfo->rbhuffroot, newnode,
+                           &nodecreated);
     }
     huffmaninfo->roothuffmantree = (Huffmannode *) newnode;
   }
@@ -191,19 +185,6 @@ static void extractallhuffmancodes(Huffmaninfo *huffmaninfo)
   }
 }
 
-static void recursedestroyhufftree(Huffmannode *hnode)
-{
-  if(hnode->leftchild != NULL)
-  {
-    recursedestroyhufftree(hnode->leftchild);
-  } 
-  if(hnode->rightchild != NULL)
-  {
-    recursedestroyhufftree(hnode->rightchild);
-  }
-  free(hnode);
-}
-
 Sint huffmanencoding(Uint *totalbits,
                      Uint *totalnumofvalues,
                      const ArrayUint *distribution)
@@ -220,8 +201,7 @@ Sint huffmanencoding(Uint *totalbits,
   extractallhuffmancodes(&huffmaninfo);
   if(huffmaninfo.rbhuffroot != NULL)
   {
-    recursedestroyhufftree((Huffmannode *) 
-                           extractrootkey(huffmaninfo.rbhuffroot));
+    rbtree_delete(huffmaninfo.rbhuffroot);
     free(huffmaninfo.rbhuffroot);
   }
   huffmaninfo.rbhuffroot = NULL;

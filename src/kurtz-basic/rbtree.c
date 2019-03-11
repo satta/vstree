@@ -549,6 +549,83 @@ int rbtree_walk_reverse(const RBTree *tree, RBTreeAction action,
   return 0;
 }
 
+static int rbtree_rangetreerecurse(const RBTreeNode *root,
+                                   RBTreeAction action,
+                                   Uint level,
+                                   void *actinfo,
+                                   RBTreeCompareKey greaterequalleft,
+                                   RBTreeCompareKey lowerequalright,
+                                   void *cmpinfo)
+{
+  if (root->link[0] == NULL && root->link[1] == NULL)
+  {
+    if(greaterequalleft(root->key,cmpinfo) && 
+       lowerequalright(root->key,cmpinfo))
+    {
+      if(action (root->key, RBTREE_LEAF, level, actinfo) != 0)
+      {
+        return -1;
+      }
+    }
+  } else
+  {
+    if(root->link[0] != NULL)
+    {
+      if(greaterequalleft(root->key,cmpinfo))
+      {
+        if(rbtree_rangetreerecurse (root->link[0], action, level + UintConst(1), 
+                             actinfo, greaterequalleft, lowerequalright,
+                             cmpinfo) != 0)
+        {
+          return -2;
+        }
+      }
+    }
+    if(greaterequalleft(root->key,cmpinfo) && 
+       lowerequalright(root->key,cmpinfo))
+    {
+      if(action (root->key, RBTREE_POSTORDER, level, actinfo) != 0)
+      {
+        return -3;
+      }
+    }
+    if(root->link[1] != NULL)
+    {
+      if(lowerequalright(root->key,cmpinfo))
+      {
+        if(rbtree_rangetreerecurse (root->link[1], action, level + UintConst(1), 
+                             actinfo, greaterequalleft, lowerequalright, 
+                             cmpinfo) != 0)
+        {
+          return -4;
+        }
+      }
+    }
+  }
+  return 0;
+}
+
+int rbtree_walk_range(RBTree *tree,
+                      RBTreeAction action,
+                      void *actinfo,
+                      RBTreeCompareKey greaterequalleft,
+                      RBTreeCompareKey lowerequalright,
+                      void *cmpinfo)
+{
+  RBTreeNode *root = tree->root;
+
+  if (root != NULL && action != NULL)
+  {
+    if(rbtree_rangetreerecurse(root, action, 0, actinfo, 
+                         greaterequalleft, lowerequalright,
+                         cmpinfo) != 0)
+    {
+      return -1;
+    }
+  }
+  return 0;
+}
+
 static inline void* rbtree_minimum_key_for_node(const RBTreeNode *root)
 {
   if (root == NULL) {

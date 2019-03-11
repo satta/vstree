@@ -19,6 +19,7 @@
 #ifndef RBTREE_H
 #define RBTREE_H
 
+#include <stdbool.h>
 #include "types.h"
 
 typedef enum
@@ -35,12 +36,13 @@ typedef struct RBTree RBTree;
 typedef struct RBTreeIter RBTreeIter;
 
 typedef int   (*CompareWithData)(const void*, const void*, void *data);
-typedef int   (*RBTreeAction)(void *key, RBTreeContext, Uint, void*);
+typedef int   (*RBTreeAction)(void *const key , RBTreeContext, Uint, void*);
+typedef bool  (*RBTreeCompareKey)(void *key, void*);
 typedef void  (*RBTreeFreeFunc)(void *p);
 
 /* Returns a new <RBTree> object. <free> might be NULL and will be used
    to free key-object otherwise. <info> is the data for the <cmp>-function. */
-RBTree*      rbtree_new(CompareWithData cmp, RBTreeFreeFunc free,
+RBTree*        rbtree_new(CompareWithData cmp, RBTreeFreeFunc free,
                              void *info);
 void           rbtree_delete(RBTree *tree);
 /* Deletes all tree elements */
@@ -73,6 +75,12 @@ int            rbtree_walk_stop(const RBTree *tree, RBTreeAction action,
 int            rbtree_walk_reverse(const RBTree *tree,
                                       RBTreeAction action,
                                       void *actinfo);
+int            rbtree_walk_range(RBTree *tree,
+                                 RBTreeAction action,
+                                 void *actinfo,
+                                 RBTreeCompareKey greaterequalleft,
+                                 RBTreeCompareKey lowerequalright,
+                                 void *cmpinfo);
 void*          rbtree_minimum_key(const RBTree *tree);
 void*          rbtree_maximum_key(const RBTree *tree);
 void*          rbtree_root_key(const RBTree *tree);

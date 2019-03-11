@@ -13,7 +13,7 @@
 #include "gqueue-if.h"
 #include "gqueueproc.h"
 
-#include "redblack.pr"
+#include "rbtree.h"
 #include "genericqueue.pr"
 
 #define Ivalue(FRAG) (FRAG)->startpos[0]
@@ -427,12 +427,44 @@ static void chainingofmatches1(BOOL chainqhits,
 }
 #endif
 
+static int comparediagonals(const void *keya,
+                             const void *keyb,
+                             /*@unused@*/ void *info)
+{
+  const Onflyfragment *frag1 = (const Onflyfragment *) keya,
+                *frag2 = (const Onflyfragment *) keyb;
+  if(FRAGDIAGONAL(frag1) < FRAGDIAGONAL(frag2))
+  {
+    return -1;
+  }
+  if(FRAGDIAGONAL(frag1) > FRAGDIAGONAL(frag2))
+  {
+    return 1;
+  }
+  if(Jvalue(frag1) < Jvalue(frag2))
+  {
+    return -1;
+  }
+  if(Jvalue(frag1) > Jvalue(frag2))
+  {
+    return 1;
+  }
+#ifdef DEBUG
+  if(frag1->identity != frag2->identity)
+  {
+    fprintf(stderr,"same diagonal, same Jvalue, but different identities");
+    exit(EXIT_FAILURE);
+  }
+#endif
+  return 0;
+}
+
 void initmaintainedfragments(Maintainedfragments *maintainedfragments,
                              BOOL overqueue)
 {
   maintainedfragments->lastelements = emptyqueuegeneric();
   INITARRAY(&maintainedfragments->readyforoutput,Onflyfragmentptr);
-  maintainedfragments->dictroot = NULL;
+  maintainedfragments->dictroot = rbtree_new(comparediagonals, NULL, NULL);
   maintainedfragments->overqueue = overqueue;
 #ifdef DEBUG
   maintainedfragments->currentidentity = 0;
@@ -473,8 +505,8 @@ static Sint combinewithcurrentfragmentintree(Onflyfragment *leftfrag,
   return 0;
 }
 
-static Sint applyredblackwalkrange(const Keytype bmkey,
-                                   /*@unused@*/ VISIT which,
+static int applyredblackwalkrange(const Keytype bmkey,
+                                   /*@unused@*/ RBTreeContext which,
                                    /*@unused@*/ Uint depth,
                                    void *applyinfo)
 {
@@ -482,39 +514,7 @@ static Sint applyredblackwalkrange(const Keytype bmkey,
                                           applyinfo);
 }
 
-static Sint comparediagonals(const Keytype keya,
-                             const Keytype keyb,
-                             /*@unused@*/ void *info)
-{
-  Onflyfragment *frag1 = (Onflyfragment *) keya,
-                *frag2 = (Onflyfragment *) keyb;
-  if(FRAGDIAGONAL(frag1) < FRAGDIAGONAL(frag2))
-  {
-    return (Sint) -1;
-  }
-  if(FRAGDIAGONAL(frag1) > FRAGDIAGONAL(frag2))
-  {
-    return (Sint) 1;
-  }
-  if(Jvalue(frag1) < Jvalue(frag2))
-  {
-    return (Sint) -1;
-  }
-  if(Jvalue(frag1) > Jvalue(frag2))
-  {
-    return (Sint) 1;
-  }
-#ifdef DEBUG
-  if(frag1->identity != frag2->identity)
-  {
-    fprintf(stderr,"same diagonal, same Jvalue, but different identities");
-    exit(EXIT_FAILURE);
-  }
-#endif
-  return 0;
-}
-
-static BOOL greaterequallowerdiag(const Keytype keyvalue,void *info)
+static bool greaterequallowerdiag(const Keytype keyvalue,void *info)
 {
   Diagonalrange *diagrange = (Diagonalrange *) info;
   Onflyfragment *fragptr = (Onflyfragment *) keyvalue;
@@ -526,7 +526,7 @@ static BOOL greaterequallowerdiag(const Keytype keyvalue,void *info)
   return False;
 }
 
-static BOOL lowerequalupperdiag(const Keytype keyvalue,void *info)
+static bool lowerequalupperdiag(const Keytype keyvalue,void *info)
 {
   Diagonalrange *diagrange = (Diagonalrange *) info;
   Onflyfragment *fragptr = (Onflyfragment *) keyvalue;
@@ -577,7 +577,7 @@ Sint processnewquhit(BOOL chainqhits,
 {
   Onflyfragment *head, *newfragment;
   Currentfraginfo currentfraginfo;
-  BOOL nodecreated;
+  bool nodecreated;
 
   newfragment = malloc(sizeof(Onflyfragment));
   if(newfragment == NULL)
@@ -604,10 +604,7 @@ Sint processnewquhit(BOOL chainqhits,
     }
     if(!maintainedfragments->overqueue)
     {
-      if(redblacktreedelete (head,
-                             &maintainedfragments->dictroot,
-                             comparediagonals,
-                             NULL) != 0)
+      if(rbtree_erase(maintainedfragments->dictroot, head) != 0)
       {
         fprintf(stderr,"cannot head from red black tree\n");
         exit(EXIT_FAILURE);
@@ -647,12 +644,12 @@ Sint processnewquhit(BOOL chainqhits,
     diag = FRAGDIAGONAL(newfragment);
     diagonalrange.lowerdiagonal = diag - maxdistance;
     diagonalrange.upperdiagonal = diag + maxdistance;
-    if(redblacktreewalkrange (maintainedfragments->dictroot,
-                              applyredblackwalkrange,
-                              &currentfraginfo,
-                              greaterequallowerdiag,
-                              lowerequalupperdiag,
-                              &diagonalrange) != 0)
+    if(rbtree_walk_range (maintainedfragments->dictroot,
+                          applyredblackwalkrange,
+                          &currentfraginfo,
+                          greaterequallowerdiag,
+                          lowerequalupperdiag,
+                          &diagonalrange) != 0)
     {
       return (Sint) -1;
     }
@@ -661,11 +658,9 @@ Sint processnewquhit(BOOL chainqhits,
   enqueuegeneric(maintainedfragments->lastelements,newfragment);
   if(!maintainedfragments->overqueue)
   {
-    (void) redblacktreesearch ((Keytype) newfragment,
-                               &nodecreated,
-                               &maintainedfragments->dictroot,
-                               comparediagonals,
-                               NULL);
+    (void) rbtree_search (maintainedfragments->dictroot,
+		          (Keytype) newfragment,
+                          &nodecreated);
     if(!nodecreated)
     {
       ERROR0("newfragment was not inserted");
@@ -695,7 +690,7 @@ Sint wrapmaintainedfragments(Maintainedfragments *maintainedfragments,
   }
   if(!maintainedfragments->overqueue)
   {
-    redblacktreedestroy(False,NULL,NULL,maintainedfragments->dictroot);
+    rbtree_delete(maintainedfragments->dictroot);
   }
   FREEARRAY(&maintainedfragments->readyforoutput,Onflyfragmentptr);
   free(maintainedfragments->lastelements);

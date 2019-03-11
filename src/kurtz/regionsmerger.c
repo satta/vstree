@@ -9,7 +9,7 @@
 #include "arraydef.h"
 #include "errordef.h"
 
-#include "redblack.pr"
+#include "rbtree.h"
 
 static Sint compareregions(const Keytype key,
                            const Keytype treeelem, /*@unused@*/ void *info)

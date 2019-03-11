@@ -39,7 +39,7 @@ LIBOBJECTS=\
   ${COMPILEDIR}readmulti.o\
   ${COMPILEDIR}readnextline.o\
   ${COMPILEDIR}readvirt.o\
-  ${COMPILEDIR}redblack.o\
+  ${COMPILEDIR}rbtree.o\
   ${COMPILEDIR}safescpy.o\
   ${COMPILEDIR}scanpaths.o\
   ${COMPILEDIR}scorematrix.o\
@@ -90,7 +90,7 @@ LIBDEBUGOBJECTS=\
   ${COMPILEDIR}readmulti.dbg.o\
   ${COMPILEDIR}readnextline.dbg.o\
   ${COMPILEDIR}readvirt.dbg.o\
-  ${COMPILEDIR}redblack.dbg.o\
+  ${COMPILEDIR}rbtree.dbg.o\
   ${COMPILEDIR}safescpy.dbg.o\
   ${COMPILEDIR}scanpaths.dbg.o\
   ${COMPILEDIR}scorematrix.dbg.o\
@@ -141,7 +141,7 @@ SPLINTALL=\
   readmulti.splint\
   readnextline.splint\
   readvirt.splint\
-  redblack.splint\
+  rbtree.splint\
   safescpy.splint\
   scanpaths.splint\
   scorematrix.splint\
@@ -192,7 +192,7 @@ PROTOTYPES=\
   ../include/readmulti.pr\
   ../include/readnextline.pr\
   ../include/readvirt.pr\
-  ../include/redblack.pr\
+  ../include/rbtree.h\
   ../include/safescpy.pr\
   ../include/scanpaths.pr\
   ../include/scorematrix.pr\
