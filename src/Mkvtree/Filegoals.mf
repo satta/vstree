@@ -43,7 +43,7 @@ ${COMPILEDIR}%.dbg.o:%.c
 	indent $@
 
 %.pr:%.c
-	skproto $< > $@
+	gt dev skproto $< > $@
 
 %.splint:%.c
 	splint ${SPLINTFLAGS} $<

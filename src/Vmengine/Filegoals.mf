@@ -21,7 +21,7 @@ splintclean:
 	rm -f *.splint
 
 ../include/%.pr:%.c
-	skproto $< > $@
+	gt dev skproto $< > $@
 
 .PHONY:mkdircompiledir
 mkdircompiledir:
